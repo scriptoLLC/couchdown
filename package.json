@@ -1,6 +1,6 @@
 {
-  "name": "couch-leveldown",
-  "version": "1.0.0",
+  "name": "couchdown",
+  "version": "0.0.1",
   "description": "A leveldown backend for couchdb",
   "main": "couch-down.js",
   "scripts": {
