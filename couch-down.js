@@ -65,7 +65,7 @@ CouchDown.prototype._request = function (key, method, payload, cb) {
         return cb(err)
       }
 
-      if (res.statusCode !== 200 || res.statusCode !== 201) {
+      if (res.statusCode !== 200 && res.statusCode !== 201) {
         err = new Error(body.reason)
         err.type = body.error
         err.code = res.statusCode
