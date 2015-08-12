@@ -102,7 +102,7 @@ test('putting and getting hex', function (t) {
 test('putting and getting json', function (t) {
   var key = 'key1'
   var val = {msg: 'yo this is a test'}
-  var db = level('http://localhost:5984/' + getDB(), {db: CouchDown, valueEncoding: 'json'})
+  var db = level('http://localhost:5984/' + getDB(), {db: CouchDown, valueEncoding: 'json', wrapJSON: true})
   db.put(key, val, function (err) {
     t.error(err, 'failed on put in json test')
     db.get(key, function (err, data) {
@@ -116,7 +116,7 @@ test('putting and getting json', function (t) {
 test('putting and getting with a hex key', function (t) {
   var key = new Buffer('key1').toString('hex')
   var val = {msg: 'yo this is a test'}
-  var db = level('http://localhost:5984/' + getDB(), {db: CouchDown, keyEncoding: 'hex', valueEncoding: 'json'})
+  var db = level('http://localhost:5984/' + getDB(), {db: CouchDown, keyEncoding: 'hex', valueEncoding: 'json', wrapJSON: true})
   db.put(key, val, function (err) {
     t.error(err, 'failed on put in hex key test')
     db.get(key, function (err, data) {
@@ -130,7 +130,7 @@ test('putting and getting with a hex key', function (t) {
 test('putting and getting with a utf8 key', function (t) {
   var key = new Buffer('key1').toString('utf8')
   var val = {msg: 'yo this is a test'}
-  var db = level('http://localhost:5984/' + getDB(), {db: CouchDown, keyEncoding: 'utf8', valueEncoding: 'json'})
+  var db = level('http://localhost:5984/' + getDB(), {db: CouchDown, keyEncoding: 'utf8', valueEncoding: 'json', wrapJSON: true})
   db.put(key, val, function (err) {
     t.error(err, 'failed on put in utf8 key test')
     db.get(key, function (err, data) {
@@ -144,7 +144,7 @@ test('putting and getting with a utf8 key', function (t) {
 test('putting and getting with a base64 key', function (t) {
   var key = new Buffer('key1').toString('base64')
   var val = {msg: 'yo this is a test'}
-  var db = level('http://localhost:5984/' + getDB(), {db: CouchDown, keyEncoding: 'base64', valueEncoding: 'json'})
+  var db = level('http://localhost:5984/' + getDB(), {db: CouchDown, keyEncoding: 'base64', valueEncoding: 'json', wrapJSON: true})
   db.put(key, val, function (err) {
     t.error(err, 'failed on put in base64 key test')
     db.get(key, function (err, data) {
@@ -158,7 +158,7 @@ test('putting and getting with a base64 key', function (t) {
 test('putting and getting with a ascii key', function (t) {
   var key = new Buffer('key1').toString('ascii')
   var val = {msg: 'yo this is a test'}
-  var db = level('http://localhost:5984/' + getDB(), {db: CouchDown, keyEncoding: 'ascii', valueEncoding: 'json'})
+  var db = level('http://localhost:5984/' + getDB(), {db: CouchDown, keyEncoding: 'ascii', valueEncoding: 'json', wrapJSON: true})
   db.put(key, val, function (err) {
     t.error(err, 'failed on put in ascii key test')
     db.get(key, function (err, data) {
@@ -203,41 +203,45 @@ test('putting and getting with a ucs2 key', {skip: true}, function (t) {
 })
 
 test('teardown', function (t) {
-  var opts = {
-    protocol: 'http:',
-    hostname: 'localhost',
-    port: 5984,
-    method: 'DELETE'
-  }
-  var _count = 0
-
-  var done = function () {
-    if (_count === _dbs.length) {
-      t.end()
+  if (process.env.NODE_ENV !== 'ci') {
+    var opts = {
+      protocol: 'http:',
+      hostname: 'localhost',
+      port: 5984,
+      method: 'DELETE'
     }
-  }
+    var _count = 0
 
-  _dbs.forEach(function (db) {
-    opts.path = '/' + db
-
-    var req = http.request(opts, function (res) {
-      _count++
-      var body = []
-      if (res.statusCode !== 200) {
-        res.on('data', function (c) {
-          body.push(c.toString())
-        })
-        res.on('end', function () {
-          t.ok(false, 'Error deleting ' + db + ' ' + body.join(''))
-          done()
-        })
-      } else {
-        t.ok()
-        done()
+    var done = function () {
+      if (_count === _dbs.length) {
+        t.end()
       }
-    })
-    req.end()
-  })
+    }
 
-  t.end()
+    _dbs.forEach(function (db) {
+      opts.path = '/' + db
+
+      var req = http.request(opts, function (res) {
+        _count++
+        var body = []
+        if (res.statusCode !== 200) {
+          res.on('data', function (c) {
+            body.push(c.toString())
+          })
+          res.on('end', function () {
+            t.ok(false, 'Error deleting ' + db + ' ' + body.join(''))
+            done()
+          })
+        } else {
+          t.ok()
+          done()
+        }
+      })
+      req.end()
+    })
+
+    t.end()
+  } else {
+    t.end()
+  }
 })

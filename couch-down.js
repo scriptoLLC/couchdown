@@ -8,7 +8,7 @@ var debug = require('debug')('couchdown')
 var xtend = require('xtend')
 var AbstractLevelDOWN = require('abstract-leveldown').AbstractLevelDOWN
 
-// var CouchIterator = require('./couchdown-iterator')
+// var CouchIterator = require('./couch-iterator')
 // var CouchBatch = require('./couch-batch')
 
 var dbRE = /^[a-z]+[a-z0-9_$()+-/]*$/
@@ -39,8 +39,134 @@ function CouchDown (location) {
 
 util.inherits(CouchDown, AbstractLevelDOWN)
 
+CouchDown.prototype._open = function (options, cb) {
+  this.valueEncoding = options.valueEncoding
+  this.keyEncoding = options.keyEncoding
+  this.createIfMissing = options.createIfMissing
+  this.errorIfExists = options.errorIfExists
+  this.wrapJSON = options.wrapJSON || false
+  var self = this
+
+  if (this.keyEncoding === 'ucs2' || this.keyEncoding === 'utf16le') {
+    throw new Error(this.keyEncoding + ' does not work with CouchDB, please choose a different encoding')
+  }
+
+  this._request(this._server, 'PUT', null, true, function (err, body) {
+    if (err && err.type === 'file_exists') {
+      if (self.errorIfExists) {
+        debug('Database exists, errorIfExists set though so time to bail')
+        return cb(new Error('Database already exists at ' + self._server))
+      }
+      return cb()
+    }
+
+    cb(err)
+  })
+}
+
+CouchDown.prototype._put = function (key, val, options, cb) {
+  var self = this
+  key = key.toString(this.keyEncoding)
+
+  if (this.valueEncoding === 'json' && !this.wrapJSON) {
+    debug('we are not wrapping json objects, so just put the object')
+    return this._putWithRev(key, val, cb)
+  }
+
+  this._getRev(key, function (err, rev) {
+    var valueWrapper = {data: val}
+    if (rev) {
+      valueWrapper._rev = rev
+    }
+
+    debug('_rev retreived from server', rev)
+    self._putWithRev(key, valueWrapper, cb)
+  })
+}
+
+CouchDown.prototype._putWithRev = function (key, value, cb) {
+  this._request(key, 'PUT', value, true, function (err, body) {
+    if (err) {
+      debug('Error in PUT', err, body)
+      return cb(err)
+    }
+
+    return cb(null)
+  })
+}
+
+CouchDown.prototype._get = function (key, options, cb) {
+  var self = this
+  key = key.toString(this.keyEncoding)
+
+  this._request(key, 'GET', null, false, function (err, body) {
+    if (err) {
+      debug('Error in GET', body)
+      return cb(err)
+    }
+
+    if (self.valueEncoding !== 'json' || self.wrapJSON) {
+      try {
+        body = JSON.parse(body).data
+      } catch (err) {
+        debug('Failed decoding JSON', err, body)
+        return cb(err)
+      }
+    }
+
+    if (self.valueEncoding !== 'json') {
+      body = new Buffer(body).toString(self.valueEncoding)
+    }
+
+    debug('Returning', body)
+
+    return cb(null, body)
+  })
+}
+
+CouchDown.prototype._del = function (key, options, cb) {
+  var self = this
+  key = key.toString(this.keyEncoding)
+
+  this._getRev(key, function (err, rev) {
+    if (err) {
+      debug('Error in getting document revision for delete', err, key, rev)
+      return cb(err)
+    }
+
+    if (!rev) {
+      debug('There is no _rev available for', key)
+      return cb(new Error('No _rev available for ' + key))
+    }
+
+    var deleteKey = [key, '?rev=', rev].join('')
+
+    self._request(deleteKey, 'DELETE', null, true, function (err, body) {
+      if (err) {
+        debug('Error in DELETE', err, body)
+        return cb(err)
+      }
+      debug('DELETE complete', body)
+      return cb()
+    })
+  })
+}
+
+CouchDown.prototype._iterator = function (options) {
+  return new CouchIterator(this, options)
+}
+
 CouchDown.prototype._request = function (key, method, payload, parseBody, extraHeaders, cb) {
   var server = this._server
+
+  if (payload && typeof payload !== 'string') {
+    try {
+      payload = JSON.stringify(payload)
+    } catch (err) {
+      debug('Cannot stringify payload', err, payload)
+      return cb(err)
+    }
+  }
 
   if (typeof extraHeaders === 'function') {
     cb = extraHeaders
@@ -74,6 +200,7 @@ CouchDown.prototype._request = function (key, method, payload, parseBody, extraH
 
     res.on('end', function () {
       var body = buf.join('')
+      var etag = ''
 
       if (parseBody) {
         try {
@@ -85,105 +212,33 @@ CouchDown.prototype._request = function (key, method, payload, parseBody, extraH
 
       if (res.statusCode !== 200 && res.statusCode !== 201) {
         err = new Error(body.reason)
+        if (res.status === 404) {
+          err.message = 'NotFound'
+          err.notFound = true
+        }
+
         err.type = body.error
-        err.code = res.statusCode
+        err.status = res.statusCode
       }
 
-      cb(err, body)
+      if (res.headers.etag) {
+        etag = res.headers.etag.replace(/\"/g, '')
+      }
+
+      cb(err, body, etag)
     })
   })
 
   req.end(payload)
 }
 
-CouchDown.prototype._open = function (options, cb) {
-  this.valueEncoding = options.valueEncoding
-  this.keyEncoding = options.keyEncoding
-  this.createIfMissing = options.createIfMissing
-  this.errorIfExists = options.errorIfExists
-
-  this._request(null, 'PUT', null, true, function (err, body) {
-    if (err && err.type === 'file_exists') {
-      debug('Database already exists, continuing as normal')
-      return cb()
-    }
-
-    debug('Open complete', body, err)
-    cb(err)
-  })
-}
-
-CouchDown.prototype._put = function (key, value, options, cb) {
-  // wrap the value inside of a JSON object since couch always wants json
-  // no matter what we're storing. we do this for valueEncoding: json as well
-  // since we don't want to munge existing _id or _rev tags that might exist
-  value = JSON.stringify({
-    data: value
-  })
-
-  key = key.toString(this.keyEncoding)
-
-  this._request(key, 'PUT', value, true, function (err, body) {
-    if (err) {
-      debug('Error in PUT', err, body)
-      return cb(err)
-    }
-    debug('PUT complete', body)
-    return cb()
-  })
-}
-
-CouchDown.prototype._get = function (key, options, cb) {
-  var self = this
-
-  key = key.toString(this.keyEncoding)
-
-  this._request(key, 'GET', null, false, function (err, body) {
-    if (err) {
-      debug('Error in GET', body)
-      return cb(err)
-    }
-    debug('GET complete', body)
-
-    try {
-      body = JSON.parse(body).data
-    } catch (err) {
-      debug('Failed decoding JSON', err, body)
+CouchDown.prototype._getRev = function (key, cb) {
+  this._request(key, 'HEAD', null, false, function (err, body, rev) {
+    if (err && err.statusCode !== 404) {
       return cb(err)
     }
 
-    if (self.valueEncoding !== 'json') {
-      body = new Buffer(body).toString(self.valueEncoding)
-    }
-
-    return cb(null, body)
-  })
-}
-
-CouchDown.prototype._del = function (key, options, cb) {
-  var self = this
-  key = key.toString(this.keyEncoding)
-  this._request(key, 'GET', null, true, function (err, doc) {
-    if (err) {
-      debug('Error in getting document revision for delete', err, key, doc)
-      return cb(err)
-    }
-
-    if (!doc._rev) {
-      debug('There is no _rev available for', key, doc)
-      return cb(new Error('No _rev available for ' + key))
-    }
-
-    var deleteKey = [key, '?rev=', doc._rev].join('')
-
-    self._request(deleteKey, 'DELETE', null, true, function (err, body) {
-      if (err) {
-        debug('Error in DELETE', err, body)
-        return cb(err)
-      }
-      debug('DELETE complete', body)
-      return cb()
-    })
+    cb(null, rev)
   })
 }
 
