@@ -3,7 +3,7 @@
 var http = require('http')
 var test = require('tap').test
 var level = require('levelup')
-var CouchDown = require('./couch-down')
+var CouchDown = require('../couch-down')
 
 var prefix = 't' + (new Date()).getTime()
 var _dbs = []

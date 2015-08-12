@@ -8,7 +8,9 @@ var debug = require('debug')('couchdown')
 var xtend = require('xtend')
 var AbstractLevelDOWN = require('abstract-leveldown').AbstractLevelDOWN
 
-// var CouchIterator = require('./couch-iterator')
+var unwrapValue = require('./unwrap-value')
+
+var CouchIterator = require('./couch-iterator')
 // var CouchBatch = require('./couch-batch')
 
 var dbRE = /^[a-z]+[a-z0-9_$()+-/]*$/
@@ -105,22 +107,7 @@ CouchDown.prototype._get = function (key, options, cb) {
       return cb(err)
     }
 
-    if (self.valueEncoding !== 'json' || self.wrapJSON) {
-      try {
-        body = JSON.parse(body).data
-      } catch (err) {
-        debug('Failed decoding JSON', err, body)
-        return cb(err)
-      }
-    }
-
-    if (self.valueEncoding !== 'json') {
-      body = new Buffer(body).toString(self.valueEncoding)
-    }
-
-    debug('Returning', body)
-
-    return cb(null, body)
+    unwrapValue(body, self.valueEncoding, self.wrapJSON, cb)
   })
 }
 
