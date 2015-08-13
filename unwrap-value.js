@@ -3,8 +3,8 @@
 var debug = require('debug')('couchdown')
 
 module.exports = function unwrapValue (body, encoding, wrapJSON, cb) {
-  debug('unwrapping with', encoding, wrapJSON)
-  if (encoding !== 'json' || wrapJSON) {
+  debug('unwrapping with', encoding, wrapJSON, typeof body)
+  if (typeof body === 'string' && encoding !== 'json' || wrapJSON) {
     try {
       body = JSON.parse(body).data
     } catch (err) {
