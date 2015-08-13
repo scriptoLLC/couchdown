@@ -8,7 +8,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/scriptollc/couch-leveldown.git"
+    "url": "git+https://github.com/scriptollc/couchdown.git"
   },
   "keywords": [
     "couchdb",
@@ -19,9 +19,9 @@
   "author": "Todd Kennedy <todd@selfassembled.org>",
   "license": "Apache-2.0",
   "bugs": {
-    "url": "https://github.com/scriptollc/couch-leveldown/issues"
+    "url": "https://github.com/scriptollc/couchdown/issues"
   },
-  "homepage": "https://github.com/scriptollc/couch-leveldown#readme",
+  "homepage": "https://github.com/scriptollc/couchdown#readme",
   "dependencies": {
     "abstract-leveldown": "~2.4.0",
     "debug": "~2.2.0",
