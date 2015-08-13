@@ -17,13 +17,19 @@ var CouchDown = require('couchdown')
 var db = levelup('http://localhost:5894/db', {db: CouchDown})
 ```
 
-## CouchDB & JSON
+## CouchDB and _rev
+
+**Using the batch operation can be hazardous!**
+
+If you are using the `#batch` operation, using `valueEncoding: json` and not setting `wrapJSON: true` in your constructor, using `#batch` requires some additional attention! Once you've put your document, you **must** `#get` the object again from the server to update the `_rev` property on the object. Failure to do so will result in all subsequent `#put` operations to fail with a document mis-match!
+
+## CouchDB and JSON
 
 Since CouchDB is a JSON store, non-JSON values will be wrapped in a JSON object transparently for the user. This will add some additional overhead to `#put` and `#del` operations though since it will have to make a `HEAD` request to the server first to find out what the latest version of the document is before it can perform the operation. If you're looking for a very performant way to store non-JSON values, this is likely not the best solution for you.
 
 JSON values, however, are by default, not wrapped.  This means you will receive the `_id` and `_rev` keys when you `#get` objects out of the store. If you provide `{wrapJSON: false}` as an option when you're creating the levelup instance, your JSON will be wrapped by another JSON object, so your data will not be polluted.
 
-## CouchDB & utf16le or ucs2 encoded keys
+## CouchDB and utf16le or ucs2 encoded keys
 
 There are two tests in `encoding.spec.js` that are marked `{skip: true}` -- one for keys that have `keyEncoding: 'utf16le'` and one for keys that have `keyEncoding: 'ucs2'`. Couch does not seem to like these encodings when you get to do an `HTTP GET` request, so they've been commented out.
 

@@ -6,12 +6,12 @@ var util = require('util')
 
 var debug = require('debug')('couchdown')
 var xtend = require('xtend')
+var _findIndex = require('lodash.findindex')
 var AbstractLevelDOWN = require('abstract-leveldown').AbstractLevelDOWN
 
 var unwrapValue = require('./unwrap-value')
 
 var CouchIterator = require('./couch-iterator')
-// var CouchBatch = require('./couch-batch')
 
 var dbRE = /^[a-z]+[a-z0-9_$()+-/]*$/
 
@@ -68,9 +68,11 @@ CouchDown.prototype._open = function (options, cb) {
 
 CouchDown.prototype._put = function (key, val, options, cb) {
   var self = this
-  key = key.toString(this.keyEncoding)
+  var valueEncoding = options.valueEncoding || this.valueEncoding
+  var keyEncoding = options.keyEncoding || this.keyEncoding
+  key = key.toString(keyEncoding)
 
-  if (this.valueEncoding === 'json' && !this.wrapJSON) {
+  if (valueEncoding === 'json' && !this.wrapJSON) {
     debug('we are not wrapping json objects, so just put the object')
     return this._putWithRev(key, val, cb)
   }
@@ -99,7 +101,9 @@ CouchDown.prototype._putWithRev = function (key, value, cb) {
 
 CouchDown.prototype._get = function (key, options, cb) {
   var self = this
-  key = key.toString(this.keyEncoding)
+  var valueEncoding = options.valueEncoding || this.valueEncoding
+  var keyEncoding = options.keyEncoding || this.keyEncoding
+  key = key.toString(keyEncoding)
 
   this._request(key, 'GET', null, false, function (err, body) {
     if (err) {
@@ -107,13 +111,14 @@ CouchDown.prototype._get = function (key, options, cb) {
       return cb(err)
     }
 
-    unwrapValue(body, self.valueEncoding, self.wrapJSON, cb)
+    unwrapValue(body, valueEncoding, self.wrapJSON, cb)
   })
 }
 
 CouchDown.prototype._del = function (key, options, cb) {
   var self = this
-  key = key.toString(this.keyEncoding)
+  var keyEncoding = options.keyEncoding || this.keyEncoding
+  key = key.toString(keyEncoding)
 
   this._getRev(key, function (err, rev) {
     if (err) {
@@ -136,6 +141,76 @@ CouchDown.prototype._del = function (key, options, cb) {
       debug('DELETE complete', body)
       return cb()
     })
+  })
+}
+
+CouchDown.prototype._batch = function (ops, options, cb) {
+  var self = this
+  var valueEncoding = options.valueEncoding || this.valueEncoding
+  var keyEncoding = options.keyEncoding || this.keyEncoding
+
+  var needRevs = ops
+    .filter(function (op) {
+      return !op.value._rev
+    })
+    .map(function (op) {
+      return op.key
+    })
+
+  var bulkOps = ops.map(function (op) {
+    var valEnc = op.valueEncoding || valueEncoding
+    var keyEnc = op.keyEncoding || keyEncoding
+
+    if (valEnc !== 'json' || self.wrapJSON) {
+      op.value = {data: op.value}
+    }
+
+    if (valEnc === 'json' && typeof op.value === 'string') {
+      op.value = JSON.parse(op.value)
+    }
+
+    var val = xtend({id: op.key.toString(keyEnc)}, op.value)
+    if (op.type === 'del') {
+      val._deleted = true
+    }
+
+    return val
+  })
+
+  if (needRevs.length > 0) {
+    return this._request('_all_docs', 'POST', {keys: needRevs}, true, function (err, revs) {
+      if (err) {
+        debug('Unable to get missing _revs on batch op', err)
+        return cb(err)
+      }
+
+      if (revs.docs) {
+        revs.forEach(function (rev) {
+          var idx = _findIndex(bulkOps, {_id: rev.key})
+          ops[idx]._rev = rev._rev
+        })
+      }
+
+      self._processBatch(bulkOps, cb)
+    })
+  }
+
+  this._processBatch(bulkOps, cb)
+}
+
+CouchDown.prototype._processBatch = function (ops, cb) {
+  var doc = {
+    docs: ops,
+    all_or_nothing: true
+  }
+
+  this._request('_bulk_docs', 'POST', doc, true, function (err) {
+    if (err) {
+      debug('Unable to batch put', err)
+      return cb(err)
+    }
+
+    cb()
   })
 }
 
@@ -165,17 +240,17 @@ CouchDown.prototype._request = function (key, method, payload, parseBody, extraH
   }
 
   var defaultHeaders = {
-    'content-type': 'application/json'
+    'Content-Type': 'application/json'
   }
 
   var headers = xtend(defaultHeaders, extraHeaders)
 
   var opts = xtend(url.parse(server), {
     method: method,
-    header: headers
+    headers: headers
   })
 
-  debug('Request generated', method, url.format(opts), payload)
+  debug('Request generated', method, url.format(opts), payload, opts.header)
 
   var req = http.request(opts, function (res) {
     var buf = []
