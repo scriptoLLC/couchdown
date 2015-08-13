@@ -29,7 +29,6 @@ There are two tests in `encoding.spec.js` that are marked `{skip: true}` -- one 
 
 ## TODO
 * Implement `AbstractChainedBatch`
-* Implement `AbstractIterator`
 
 ## LICENSE
 Copyright © 2015 Scripto, Use under the Apache-2.0 license. See LICENSE for details

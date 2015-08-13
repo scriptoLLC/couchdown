@@ -203,45 +203,41 @@ test('putting and getting with a ucs2 key', {skip: true}, function (t) {
 })
 
 test('teardown', function (t) {
-  if (process.env.NODE_ENV !== 'ci') {
-    var opts = {
-      protocol: 'http:',
-      hostname: 'localhost',
-      port: 5984,
-      method: 'DELETE'
-    }
-    var _count = 0
-
-    var done = function () {
-      if (_count === _dbs.length) {
-        t.end()
-      }
-    }
-
-    _dbs.forEach(function (db) {
-      opts.path = '/' + db
-
-      var req = http.request(opts, function (res) {
-        _count++
-        var body = []
-        if (res.statusCode !== 200) {
-          res.on('data', function (c) {
-            body.push(c.toString())
-          })
-          res.on('end', function () {
-            t.ok(false, 'Error deleting ' + db + ' ' + body.join(''))
-            done()
-          })
-        } else {
-          t.ok()
-          done()
-        }
-      })
-      req.end()
-    })
-
-    t.end()
-  } else {
-    t.end()
+  var opts = {
+    protocol: 'http:',
+    hostname: 'localhost',
+    port: 5984,
+    method: 'DELETE'
   }
+  var _count = 0
+
+  var done = function () {
+    if (_count === _dbs.length) {
+      t.end()
+    }
+  }
+
+  _dbs.forEach(function (db) {
+    opts.path = '/' + db
+
+    var req = http.request(opts, function (res) {
+      _count++
+      var body = []
+      if (res.statusCode !== 200) {
+        res.on('data', function (c) {
+          body.push(c.toString())
+        })
+        res.on('end', function () {
+          t.ok(false, 'Error deleting ' + db + ' ' + body.join(''))
+          done()
+        })
+      } else {
+        t.ok()
+        done()
+      }
+    })
+    req.end()
+  })
+
+  t.end()
 })
