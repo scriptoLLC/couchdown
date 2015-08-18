@@ -5,16 +5,13 @@ var crypto = require('crypto')
 var elements = require('./elements')
 
 module.exports = function (db, cb) {
-  var _curr = 0
-  function done () {
-    ++_curr
-    if (_curr === elements.elements.length) {
-      cb()
+  var els = elements.elements.map(function (element) {
+    return {
+      op: 'put',
+      key: crypto.randomBytes(20).toString('hex'),
+      value: element
     }
-  }
-
-  elements.elements.forEach(function (element) {
-    var key = crypto.randomBytes(20).toString('hex')
-    db.put(key, element, done)
   })
+
+  db.batch(els, cb)
 }

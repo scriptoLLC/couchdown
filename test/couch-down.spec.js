@@ -164,7 +164,7 @@ test('keys with colons', function (t) {
   }, 'zarro boogs')
 })
 
-test('teardown', function (t) {
+test('teardown', {skip: process.env.NODE_ENV === 'ci'}, function (t) {
   var opts = {
     protocol: 'http:',
     hostname: 'localhost',

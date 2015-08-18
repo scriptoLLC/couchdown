@@ -4,7 +4,12 @@ var url = require('url')
 var http = require('http')
 var https = require('https')
 var util = require('util')
+
 var path = require('path')
+
+if (!path.posix) {
+  path = require('./path')
+}
 
 var debug = require('debug')('couchdown')
 var xtend = require('xtend')
