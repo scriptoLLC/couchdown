@@ -163,6 +163,15 @@ test('keys with colons', function (t) {
   })
 })
 
+test('not found returns notfound error correctly', function (t) {
+  var db = level('http://localhost:5984/' + getDB(), {db: CouchDown})
+  db.get('foobar', function (err) {
+    t.ok(err.notFound, 'returned a notFound error')
+    t.ok(/Key not found in database/.test(err), 'message is right')
+    t.end()
+  })
+})
+
 test('teardown', {skip: process.env.NODE_ENV === 'ci'}, function (t) {
   var opts = {
     protocol: 'http:',

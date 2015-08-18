@@ -289,13 +289,12 @@ CouchDown.prototype._request = function (key, method, payload, parseBody, extraH
 
       if (res.statusCode !== 200 && res.statusCode !== 201) {
         err = new Error(body.reason)
-        if (res.status === 404) {
-          err.message = 'NotFound'
-          err.notFound = true
-        }
-
         err.type = body.error
         err.status = res.statusCode
+
+        if (res.statusCode === 404) {
+          err.notFound = true
+        }
       }
 
       if (res.headers.etag) {
