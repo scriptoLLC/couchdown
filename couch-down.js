@@ -4,6 +4,7 @@ var url = require('url')
 var http = require('http')
 var https = require('https')
 var util = require('util')
+var path = require('path')
 
 var debug = require('debug')('couchdown')
 var xtend = require('xtend')
@@ -42,7 +43,8 @@ function CouchDown (location) {
   }
 
   AbstractLevelDOWN.call(this, location)
-  this._server = url.resolve(server, encodeURIComponent(db) + '/')
+  this._serverURL = server
+  this._database = encodeURIComponent(db)
   debug('Server URL', server)
   debug('Database name', db)
 }
@@ -61,7 +63,7 @@ CouchDown.prototype._open = function (options, cb) {
     throw new Error(this.keyEncoding + ' does not work with CouchDB, please choose a different encoding')
   }
 
-  this._request(this._server, 'PUT', null, true, function (err, body) {
+  this._request(null, 'PUT', null, true, function (err, body) {
     if (err && err.type === 'file_exists') {
       if (self.errorIfExists) {
         debug('Database exists, errorIfExists set though so time to bail')
@@ -227,7 +229,7 @@ CouchDown.prototype._iterator = function (options) {
 }
 
 CouchDown.prototype._request = function (key, method, payload, parseBody, extraHeaders, cb) {
-  var server = this._server
+  var server = url.resolve(this._serverURL, this._database)
 
   if (payload && typeof payload !== 'string') {
     try {
@@ -244,7 +246,7 @@ CouchDown.prototype._request = function (key, method, payload, parseBody, extraH
   }
 
   if (key) {
-    server = url.resolve(this._server, key)
+    server = url.resolve(this._serverURL, path.posix.join(this._database, key))
   }
 
   var defaultHeaders = {

@@ -154,6 +154,16 @@ test('https', {skip: process.env.NODE_ENV === 'ci'}, function (t) {
   }, 'able to connect over https')
 })
 
+test('keys with colons', function (t) {
+  t.plan(1)
+  var db = level('http://localhost:5984/' + getDB(), {db: CouchDown})
+  t.doesNotThrow(function () {
+    db.put('system:test', {testing: 'yeah'}, function (err) {
+      t.error(err, 'put key with colons')
+    })
+  }, 'zarro boogs')
+})
+
 test('teardown', function (t) {
   var opts = {
     protocol: 'http:',
