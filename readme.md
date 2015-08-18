@@ -17,6 +17,10 @@ var CouchDown = require('couchdown')
 var db = levelup('http://localhost:5894/db', {db: CouchDown})
 ```
 
+## Auth!
+
+This module passes authentication details via the `auth` section of the URL. This means if you're talking to a couch server over a public, non-encryped connection your auth details will be in the open. But why are you communicating over HTTP to a database on a public network anyway...
+
 ## CouchDB and _rev
 
 **Using the batch operation can be hazardous!**
