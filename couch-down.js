@@ -2,6 +2,7 @@
 
 var url = require('url')
 var http = require('http')
+var https = require('https')
 var util = require('util')
 
 var debug = require('debug')('couchdown')
@@ -15,6 +16,11 @@ var CouchIterator = require('./couch-iterator')
 
 var dbRE = /^[a-z]+[a-z0-9_$()+-/]*$/
 
+var httpModules = {
+  http: http,
+  https: https
+}
+
 function CouchDown (location) {
   if (!(this instanceof CouchDown)) {
     return new CouchDown(location)
@@ -26,7 +32,9 @@ function CouchDown (location) {
     throw new Error(location + ' must contain a protocol')
   }
 
-  var server = url.format({protocol: urlParts.protocol, host: urlParts.host})
+  this.reqModule = httpModules[urlParts.protocol.substr(0, urlParts.protocol.length - 1)]
+  var server = url.format({protocol: urlParts.protocol, host: urlParts.host, auth: urlParts.auth})
+
   var db = urlParts.pathname.substr(1)
 
   if (!dbRE.test(db)) {
@@ -250,9 +258,9 @@ CouchDown.prototype._request = function (key, method, payload, parseBody, extraH
     headers: headers
   })
 
-  debug('Request generated', method, url.format(opts), payload, opts.header)
+  debug('Request generated', method, url.format(opts), payload, opts.headers)
 
-  var req = http.request(opts, function (res) {
+  var req = this.reqModule.request(opts, function (res) {
     var buf = []
     var err = null
 

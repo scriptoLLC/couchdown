@@ -99,6 +99,61 @@ test('throwing for invalid settings', function (t) {
   t.end()
 })
 
+test('authentication tests', function (t) {
+  var opts = {
+    protocol: 'http:',
+    hostname: 'localhost',
+    port: 5984,
+    method: 'PUT',
+    path: '/_config/admins/testadmin'
+  }
+
+  var body = '"testpassword"'
+
+  var req = http.request(opts, function (res) {
+    if (res.statusCode !== 200) {
+      t.error(new Error('cannot create admin user'), 'admin user created')
+    }
+
+    res
+      .on('data', function () {})
+      .on('end', function () {
+        t.ok('admin user created')
+        t.doesNotThrow(function () {
+          level('http://testadmin:testpassword@localhost:5984/' + getDB(), {db: CouchDown})
+        }, 'password and username accepted')
+
+        setTimeout(function () {
+          opts.method = 'DELETE'
+          opts.auth = 'testadmin:testpassword'
+          var req2 = http.request(opts, function (res) {
+            if (res.statusCode !== 200) {
+              t.bailout('cannot delete admin' + res.statusCode)
+            }
+
+            res.on('data', function () {}).on('end', function () {
+              t.ok(true, 'admin user deleted')
+              t.end()
+            })
+          })
+          req2.end()
+        }, 5)
+
+      })
+  })
+  req.end(body)
+})
+
+test('https', {skip: process.env.NODE_ENV === 'ci'}, function (t) {
+  process.env.NODE_TLS_REJECT_UNAUTHORIZED = 0
+  t.doesNotThrow(function () {
+    level('https://localhost:6984/' + getDB(), {db: CouchDown})
+    setTimeout(function () {
+      process.env.NODE_TLS_REJECT_UNAUTHORIZED = 1
+    }, 5)
+  }, 'able to connect over https')
+})
+
 test('teardown', function (t) {
   var opts = {
     protocol: 'http:',
