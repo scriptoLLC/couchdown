@@ -1,5 +1,6 @@
 [![js-standard-style](https://img.shields.io/badge/code%20style-standard-brightgreen.svg?style=flat)](https://github.com/feross/standard)
 [![Build Status](https://travis-ci.org/scriptoLLC/couchdown.svg?branch=master)](https://travis-ci.org/scriptoLLC/couchdown)
+[![Coverage Status](https://coveralls.io/repos/scriptoLLC/couchdown/badge.svg?branch=master&service=github)](https://coveralls.io/github/scriptoLLC/couchdown?branch=master)
 
 # CouchDown
 
@@ -36,9 +37,6 @@ JSON values, however, are by default, not wrapped.  This means you will receive 
 ## CouchDB and utf16le or ucs2 encoded keys
 
 There are two tests in `encoding.spec.js` that are marked `{skip: true}` -- one for keys that have `keyEncoding: 'utf16le'` and one for keys that have `keyEncoding: 'ucs2'`. Couch does not seem to like these encodings when you get to do an `HTTP GET` request, so they've been commented out.
-
-## TODO
-* Implement `AbstractChainedBatch`
 
 ## LICENSE
 Copyright © 2015 Scripto, Use under the Apache-2.0 license. See LICENSE for details
