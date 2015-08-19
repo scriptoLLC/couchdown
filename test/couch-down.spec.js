@@ -4,19 +4,11 @@ var http = require('http')
 var test = require('tap').test
 var level = require('levelup')
 var CouchDown = require('../couch-down')
-
-var prefix = 't' + (new Date()).getTime()
-var _dbs = []
-var _iter = 0
-
-function getDB () {
-  var dbName = prefix + 'test' + ++_iter
-  _dbs.push(dbName)
-  return dbName
-}
+var getDB = require('./get-db-helper')
+var dbName = getDB()
 
 test('connecting to a database', function (t) {
-  var db = level('http://localhost:5984/' + getDB(), {db: CouchDown, valueEncoding: 'json'}, function (err) {
+  var db = level('http://localhost:5984/' + dbName, {db: CouchDown, valueEncoding: 'json'}, function (err) {
     t.error(err, 'failed on connecting to db')
     t.ok(db.isOpen(), 'database opened')
     t.end()
@@ -24,10 +16,17 @@ test('connecting to a database', function (t) {
 })
 
 test('connecting to a db that exists', function (t) {
-  var dbName = _dbs[0]
   var db = level('http://localhost:5984/' + dbName, {db: CouchDown, valueEncoding: 'json'}, function (err) {
     t.error(err, 'failed on connecting to existing db')
     t.ok(db.isOpen(), 'database opened')
+    t.end()
+  })
+})
+
+test('failing when connecting to an existing database', function (t) {
+  var db = level('http://localhost:5984/' + dbName, {db: CouchDown, errorIfExists: true}, function (err) {
+    t.ok(/Database\ already\ exists/.test(err), 'database exists error')
+    t.notOk(db.isOpen(), 'database is not open')
     t.end()
   })
 })
@@ -63,6 +62,40 @@ test('putting and deleting', function (t) {
   })
 })
 
+test('putting bad json as json', function (t) {
+  var key = 'foo'
+  var val = ['bar']
+  var db = level('http://localhost:5984/' + getDB(), {db: CouchDown, valueEncoding: 'json'})
+  db.put(key, val, function (err) {
+    t.ok(err, 'got an error')
+    t.end()
+  })
+})
+
+test('delete something that is not there', function (t) {
+  var key = 'foo'
+  var db = level('http://localhost:5984/' + getDB(), {db: CouchDown, valueEncoding: 'json'})
+  db.del(key, function (err) {
+    t.ok(err, 'got an error')
+    t.end()
+  })
+})
+
+test('delete something with a bad _rev', function (t) {
+  var key = 'foo'
+  var val = {deleteTest: true}
+  var db = level('http://localhost:5984/' + getDB(), {db: CouchDown, valueEncoding: 'json'})
+  db.put(key, val, function (err) {
+    t.error(err, 'put new value')
+    val._id = key
+    val._rev = 'baz'
+    db.del(key + '?rev=dshfjsdf', function (err) {
+      t.ok(err, 'got an error')
+      t.end()
+    })
+  })
+})
+
 test('not wrapping json', function (t) {
   var key = 'jsontest'
   var val = {msg: 'yo this is legit'}
@@ -93,7 +126,7 @@ test('throwing for invalid settings', function (t) {
   }, 'db names must pass regex')
 
   t.throws(function () {
-    level('myhost/test', {cb: CouchDown})
+    level('myhost/test', {db: CouchDown})
   }, 'need a protocol to connect to the host')
 
   t.end()
@@ -170,44 +203,4 @@ test('not found returns notfound error correctly', function (t) {
     t.ok(/Key not found in database/.test(err), 'message is right')
     t.end()
   })
-})
-
-test('teardown', {skip: process.env.NODE_ENV === 'ci'}, function (t) {
-  var opts = {
-    protocol: 'http:',
-    hostname: 'localhost',
-    port: 5984,
-    method: 'DELETE'
-  }
-  var _count = 0
-
-  var done = function () {
-    if (_count === _dbs.length) {
-      t.end()
-    }
-  }
-
-  _dbs.forEach(function (db) {
-    opts.path = '/' + db
-
-    var req = http.request(opts, function (res) {
-      _count++
-      var body = []
-      if (res.statusCode !== 200) {
-        res.on('data', function (c) {
-          body.push(c.toString())
-        })
-        res.on('end', function () {
-          t.ok(false, 'Error deleting ' + db + ' ' + body.join(''))
-          done()
-        })
-      } else {
-        t.ok()
-        done()
-      }
-    })
-    req.end()
-  })
-
-  t.end()
 })

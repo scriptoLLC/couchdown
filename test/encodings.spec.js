@@ -1,19 +1,9 @@
 'use strict'
 
-var http = require('http')
 var test = require('tap').test
 var level = require('levelup')
 var CouchDown = require('../couch-down')
-
-var prefix = 't' + (new Date()).getTime()
-var _dbs = []
-var _iter = 0
-
-function getDB () {
-  var dbName = prefix + 'test' + ++_iter
-  _dbs.push(dbName)
-  return dbName
-}
+var getDB = require('./get-db-helper')
 
 test('putting and getting utf8', function (t) {
   var key = 'key1'
@@ -200,44 +190,4 @@ test('putting and getting with a ucs2 key', {skip: true}, function (t) {
       t.end()
     })
   })
-})
-
-test('teardown', {skip: process.env.NODE_ENV === 'ci'}, function (t) {
-  var opts = {
-    protocol: 'http:',
-    hostname: 'localhost',
-    port: 5984,
-    method: 'DELETE'
-  }
-  var _count = 0
-
-  var done = function () {
-    if (_count === _dbs.length) {
-      t.end()
-    }
-  }
-
-  _dbs.forEach(function (db) {
-    opts.path = '/' + db
-
-    var req = http.request(opts, function (res) {
-      _count++
-      var body = []
-      if (res.statusCode !== 200) {
-        res.on('data', function (c) {
-          body.push(c.toString())
-        })
-        res.on('end', function () {
-          t.ok(false, 'Error deleting ' + db + ' ' + body.join(''))
-          done()
-        })
-      } else {
-        t.ok()
-        done()
-      }
-    })
-    req.end()
-  })
-
-  t.end()
 })

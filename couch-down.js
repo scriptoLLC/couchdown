@@ -5,19 +5,13 @@ var http = require('http')
 var https = require('https')
 var util = require('util')
 
-var path = require('path')
-
-if (!path.posix) {
-  path = require('./path')
-}
-
 var debug = require('debug')('couchdown')
 var xtend = require('xtend')
 var _findIndex = require('lodash.findindex')
 var AbstractLevelDOWN = require('abstract-leveldown').AbstractLevelDOWN
 
 var unwrapValue = require('./unwrap-value')
-
+var joinPath = require('./join')
 var CouchIterator = require('./couch-iterator')
 
 var dbRE = /^[a-z]+[a-z0-9_$()+-/]*$/
@@ -72,7 +66,7 @@ CouchDown.prototype._open = function (options, cb) {
     if (err && err.type === 'file_exists') {
       if (self.errorIfExists) {
         debug('Database exists, errorIfExists set though so time to bail')
-        return cb(new Error('Database already exists at ' + self._server))
+        return cb(new Error('Database already exists at ' + url.resolve(self._serverURL, self._database)))
       }
       return cb()
     }
@@ -135,6 +129,19 @@ CouchDown.prototype._del = function (key, options, cb) {
   var keyEncoding = options.keyEncoding || this.keyEncoding
   key = key.toString(keyEncoding)
 
+  var deleteCB = function (err, body) {
+    if (err) {
+      debug('Error in DELETE', err, body)
+      return cb(err)
+    }
+    debug('DELETE complete', body)
+    return cb()
+  }
+
+  if (/^.+\?rev\=.+$/.test(key)) {
+    return self._request(key, 'DELETE', null, true, deleteCB)
+  }
+
   this._getRev(key, function (err, rev) {
     if (err) {
       debug('Error in getting document revision for delete', err, key, rev)
@@ -148,14 +155,7 @@ CouchDown.prototype._del = function (key, options, cb) {
 
     var deleteKey = [key, '?rev=', rev].join('')
 
-    self._request(deleteKey, 'DELETE', null, true, function (err, body) {
-      if (err) {
-        debug('Error in DELETE', err, body)
-        return cb(err)
-      }
-      debug('DELETE complete', body)
-      return cb()
-    })
+    self._request(deleteKey, 'DELETE', null, true, deleteCB)
   })
 }
 
@@ -251,7 +251,7 @@ CouchDown.prototype._request = function (key, method, payload, parseBody, extraH
   }
 
   if (key) {
-    server = url.resolve(this._serverURL, path.posix.join(this._database, key))
+    server = url.resolve(this._serverURL, joinPath(this._database, key))
   }
 
   var defaultHeaders = {

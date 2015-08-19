@@ -4,7 +4,8 @@
   "description": "A leveldown backend for couchdb",
   "main": "couch-down.js",
   "scripts": {
-    "test": "tap test/*.spec.js"
+    "test": "tap test/*.spec.js && node test/delete-test-dbs",
+    "coverage": "tap test/*.spec.js --cov --coverage-report=lcov && node test/delete-test-dbs"
   },
   "repository": {
     "type": "git",
