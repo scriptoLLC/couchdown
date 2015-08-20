@@ -83,7 +83,7 @@ CouchDown.prototype._put = function (key, val, options, cb) {
 
   if (valueEncoding === 'json' && !this.wrapJSON) {
     debug('we are not wrapping json objects, so just put the object')
-    return this._putWithRev(key, val, cb)
+    return this._putWithRev(key, val, valueEncoding, cb)
   }
 
   this._getRev(key, function (err, rev) {
@@ -92,19 +92,20 @@ CouchDown.prototype._put = function (key, val, options, cb) {
       valueWrapper._rev = rev
     }
 
-    debug('_rev retreived from server', rev)
-    self._putWithRev(key, valueWrapper, cb)
+    debug('_rev retrieved from server', rev)
+    self._putWithRev(key, valueWrapper, valueEncoding, cb)
   })
 }
 
-CouchDown.prototype._putWithRev = function (key, value, cb) {
-  this._request(key, 'PUT', value, true, function (err, body) {
+CouchDown.prototype._putWithRev = function (key, value, valueEncoding, cb) {
+  var self = this
+  this._request(key, 'PUT', value, false, function (err, body) {
     if (err) {
       debug('Error in PUT', err, body)
       return cb(err)
     }
 
-    return cb(null)
+    unwrapValue(body, valueEncoding, self.wrapJSON, cb)
   })
 }
 

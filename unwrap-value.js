@@ -13,7 +13,7 @@ module.exports = function unwrapValue (body, encoding, wrapJSON, cb) {
     }
   }
 
-  if (encoding !== 'json') {
+  if (encoding !== 'json' && body) {
     body = new Buffer(body).toString(encoding)
   }
 

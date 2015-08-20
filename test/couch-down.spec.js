@@ -62,6 +62,19 @@ test('putting and deleting', function (t) {
   })
 })
 
+test('put and get back value', function (t) {
+  var db = level('http://localhost:5984/' + getDB(), {db: CouchDown, valueEncoding: 'json'})
+  db.put('test', {body: 'this is a test'}, function (err, value) {
+    if (value) {
+      t.error(err, 'puts value')
+      t.ok(value.ok, 'couch says ok')
+      t.ok(value.rev, 'got a rev')
+      t.equal(value.id, 'test', 'id matching')
+    }
+    t.end()
+  })
+})
+
 test('putting bad json as json', function (t) {
   var key = 'foo'
   var val = ['bar']
@@ -189,7 +202,7 @@ test('https', {skip: process.env.NODE_ENV === 'ci'}, function (t) {
 })
 
 test('keys with colons', function (t) {
-  var db = level('http://localhost:5984/' + getDB(), {db: CouchDown})
+  var db = level('http://localhost:5984/' + getDB(), {db: CouchDown, valueEncoding: 'json'})
   db.put('system:test', {testing: 'yeah'}, function (err) {
     t.ok(true, 'working')
     t.end()
