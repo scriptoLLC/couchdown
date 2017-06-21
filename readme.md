@@ -4,6 +4,8 @@
 
 # CouchDown
 
+[![Greenkeeper badge](https://badges.greenkeeper.io/scriptoLLC/couchdown.svg)](https://greenkeeper.io/)
+
 A LevelDOWN compliant backend built on top of [Abstract-LevelDOWN](https://github.com/Level/abstract-leveldown) using Apache CouchDB as the backend.
 
 ## Installation
