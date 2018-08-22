@@ -25,7 +25,7 @@
   "homepage": "https://github.com/scriptollc/couchdown#readme",
   "dependencies": {
     "abstract-leveldown": "~2.4.0",
-    "debug": "~2.2.0",
+    "debug": "~2.6.9",
     "lodash.findindex": "~3.2.1",
     "request": "~2.60.0",
     "xtend": "~4.0.0"
